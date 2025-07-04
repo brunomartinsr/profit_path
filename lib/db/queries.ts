@@ -1,8 +1,9 @@
-import { desc, and, eq, isNull } from 'drizzle-orm';
+import { desc, and, eq, isNull, gte, lte } from 'drizzle-orm';
 import { db } from './drizzle';
 import { activityLogs, teamMembers, teams, users } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
+import { trades, trading_accounts } from './schema';
 
 export async function getUser() {
   const sessionCookie = (await cookies()).get('session');
@@ -127,4 +128,28 @@ export async function getTeamForUser() {
   });
 
   return result?.team || null;
+}
+
+export async function getTradesForMonth(startDate: Date, endDate: Date) {
+  const user = await getUser();
+  if (!user) return [];
+
+  const userTradingAccount = await db.query.trading_accounts.findFirst({
+    where: eq(trading_accounts.userId, user.id),
+  });
+
+  if (!userTradingAccount) return [];
+
+  const monthTrades = await db
+    .select()
+    .from(trades)
+    .where(
+      and(
+        eq(trades.accountId, userTradingAccount.id),
+        gte(trades.tradeDate, startDate.toISOString().split('T')[0]),
+        lte(trades.tradeDate, endDate.toISOString().split('T')[0])
+      )
+    );
+
+  return monthTrades;
 }

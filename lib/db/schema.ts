@@ -5,6 +5,9 @@ import {
   text,
   timestamp,
   integer,
+  date,
+  decimal,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -112,6 +115,32 @@ export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   }),
 }));
 
+
+// NOSSAS NOVAS TABELAS
+export const trading_accounts = pgTable('trading_accounts', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  currency: varchar('currency', { length: 10 }).default('BRL'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+export const trades = pgTable('trades', {
+  id: serial('id').primaryKey(),
+  accountId: integer('account_id').references(() => trading_accounts.id, { onDelete: 'cascade' }),
+  tradeDate: date('trade_date').notNull(),
+  asset: varchar('asset', { length: 50 }),
+  resultType: varchar('result_type', { length: 10 }).$type<"WIN" | "LOSS" | "BE">(),
+  financialResult: decimal('financial_result', { precision: 10, scale: 2 }).notNull(),
+  riskRewardRatio: varchar('risk_reward_ratio', { length: 10 }),
+  followedPlan: boolean('followed_plan'),
+  comment: text('comment'),
+  emotions: text('emotions'),
+  imageUrl: varchar('image_url', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Team = typeof teams.$inferSelect;
@@ -127,6 +156,8 @@ export type TeamDataWithMembers = Team & {
     user: Pick<User, 'id' | 'name' | 'email'>;
   })[];
 };
+export type TradingAccount = typeof trading_accounts.$inferSelect;
+export type Trade = typeof trades.$inferSelect;
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',
