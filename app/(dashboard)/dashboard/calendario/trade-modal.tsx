@@ -34,11 +34,7 @@ interface TradeModalProps {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button
-      type="submit"
-      disabled={pending}
-      className="bg-blue-600 hover:bg-blue-700 text-white"
-    >
+    <Button type="submit" disabled={pending} className="bg-blue-600 hover:bg-blue-700 text-white">
       {pending ? 'Salvando...' : 'Salvar Trade'}
     </Button>
   );
@@ -49,7 +45,7 @@ export default function TradeModal({ isOpen, onClose, day }: TradeModalProps) {
   const [state, formAction] = useActionState(createTrade, initialState);
 
   useEffect(() => {
-    // Apenas fecha o modal em caso de sucesso
+    // A única responsabilidade deste efeito é fechar o modal em caso de sucesso.
     if (state?.message) {
       onClose();
     }
@@ -62,12 +58,10 @@ export default function TradeModal({ isOpen, onClose, day }: TradeModalProps) {
           <DialogTitle className="text-xl font-semibold text-white">
             {day ? `Registrar Novo Trade para ${format(day, 'dd/MM/yyyy')}` : 'Registrar Novo Trade'}
           </DialogTitle>
-          <DialogDescription>
-            Preencha os detalhes da sua operação.
-          </DialogDescription>
+          <DialogDescription>Preencha os detalhes da sua operação.</DialogDescription>
         </DialogHeader>
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4" key={isOpen ? 'open' : 'closed'}>
           <input type="hidden" name="tradeDate" value={day ? format(day, 'yyyy-MM-dd') : ''} />
           
           <div className="space-y-2">

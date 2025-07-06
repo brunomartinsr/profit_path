@@ -1,9 +1,10 @@
 import { desc, and, eq, isNull, gte, lte } from 'drizzle-orm';
-import { db } from './drizzle';
-import { activityLogs, teamMembers, teams, users } from './schema';
+import { db } from './drizzle'; // Supondo que o seu ficheiro drizzle esteja aqui
+import { activityLogs, teamMembers, teams, users, trades, trading_accounts } from './schema';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/session';
-import { trades, trading_accounts } from './schema';
+import { verifyToken } from '@/lib/auth/session'; // O caminho pode variar
+
+// --- FUNÇÕES PADRÃO  ---
 
 export async function getUser() {
   const sessionCookie = (await cookies()).get('session');
@@ -152,4 +153,88 @@ export async function getTradesForMonth(startDate: Date, endDate: Date) {
     );
 
   return monthTrades;
+}
+
+// --- FUNÇÃO PARA O DASHBOARD ---
+
+/**
+ * Busca e calcula as estatísticas de performance para o utilizador autenticado num dado período.
+ * @param startDate - A data de início do período.
+ * @param endDate - A data de fim do período.
+ * @returns Um objeto com todas as métricas de performance calculadas.
+ */
+export async function getPerformanceStats(startDate: Date, endDate: Date) {
+  const user = await getUser();
+  // Se não houver utilizador, retorna um objeto com valores padrão.
+  if (!user) {
+    return { totalResult: 0, totalTrades: 0, wins: 0, losses: 0, breakEvens: 0, winRate: 0, totalRR: 0, trades: [] };
+  }
+
+  // Encontra a conta de trading do utilizador, seguindo o padrão do seu projeto.
+  const userTradingAccount = await db.query.trading_accounts.findFirst({
+    where: eq(trading_accounts.userId, user.id),
+  });
+  
+  // Se não houver conta, retorna valores padrão.
+  if (!userTradingAccount) {
+    return { totalResult: 0, totalTrades: 0, wins: 0, losses: 0, breakEvens: 0, winRate: 0, totalRR: 0, trades: [] };
+  }
+
+  const allTradesInPeriod = await db
+    .select()
+    .from(trades)
+    .where(
+      and(
+        eq(trades.accountId, userTradingAccount.id),
+        gte(trades.tradeDate, startDate.toISOString().split('T')[0]),
+        lte(trades.tradeDate, endDate.toISOString().split('T')[0])
+      )
+    );
+
+  // 1. Inicializar as métricas
+  let totalResult = 0;
+  let totalTrades = allTradesInPeriod.length;
+  let wins = 0;
+  let losses = 0;
+  let breakEvens = 0;
+  let totalRR = 0;
+
+  // 2. Iterar sobre cada trade para calcular as métricas
+  for (const trade of allTradesInPeriod) {
+    totalResult += parseFloat(trade.financialResult || '0');
+
+    if (trade.resultType === 'WIN') wins++;
+    else if (trade.resultType === 'LOSS') losses++;
+    else if (trade.resultType === 'BE') breakEvens++;
+
+    //  Risco/Retorno Total
+    if (trade.riskRewardRatio && trade.riskRewardRatio.includes(':')) {
+      const parts = trade.riskRewardRatio.split(':');
+      const reward = parseFloat(parts[1]);
+      
+      if (!isNaN(reward)) {
+        if (trade.resultType === 'WIN') {
+          totalRR += reward; // Adiciona o retorno no WIN
+        } else if (trade.resultType === 'LOSS') {
+          totalRR -= 1; // Subtrai 1R (risco) no LOSS
+        }
+      }
+    }
+  }
+
+  // Taxa de Acerto
+  const tradesConsideredForWinRate = wins + losses;
+  const winRate = tradesConsideredForWinRate > 0 ? (wins / tradesConsideredForWinRate) * 100 : 0;
+
+  // 4. Retornar o objeto com todas as estatísticas
+  return {
+    totalResult,
+    totalTrades,
+    wins,
+    losses,
+    breakEvens,
+    winRate,
+    totalRR,
+    trades: allTradesInPeriod
+  };
 }

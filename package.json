@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-popover": "^1.1.14",
     "@radix-ui/react-select": "^2.2.5",
     "@tailwindcss/postcss": "4.1.7",
     "@types/node": "^22.15.18",
@@ -33,6 +34,7 @@
     "radix-ui": "^1.4.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "recharts": "^3.0.2",
     "server-only": "^0.0.1",
     "stripe": "^18.2.1",
     "swr": "^2.3.3",

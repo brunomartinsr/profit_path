@@ -4,37 +4,41 @@ import {
   endOfMonth,
 } from 'date-fns';
 import { getTradesForMonth } from '@/lib/db/queries';
+import { Trade } from '@/lib/db/schema';
 import CalendarClient from './calendar-client';
 
-// Interface para os dados processados
-type DayData = {
+export type DayData = {
   totalResult: number;
   tradeCount: number;
 };
 
+// Usamos um objeto simples em vez de um Map para evitar problemas de serialização
+export type DailyDataObject = { [key: string]: DayData };
+
 export default async function CalendarioPage() {
-  // No futuro, podemos obter a data a partir dos parâmetros da URL
   const currentDate = new Date(); 
 
-  // 1. Buscamos os dados do banco de dados no servidor
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
-  const tradesForMonth = await getTradesForMonth(firstDayOfMonth, lastDayOfMonth);
+  const tradesForMonth: Trade[] = await getTradesForMonth(firstDayOfMonth, lastDayOfMonth);
 
-  // 2. Processamos os dados para agrupar por dia
-  const dailyData = new Map<string, DayData>();
+  const dailyData: DailyDataObject = {};
   for (const trade of tradesForMonth) {
-    // Garantimos que a data seja tratada corretamente
-    const tradeDate = new Date(trade.tradeDate + 'T00:00:00');
-    const dayKey = format(tradeDate, 'yyyy-MM-dd');
-
-    const existingData = dailyData.get(dayKey) || { totalResult: 0, tradeCount: 0 };
-
-    existingData.tradeCount += 1;
-    existingData.totalResult += parseFloat(trade.financialResult);
-
-    dailyData.set(dayKey, existingData);
+    const dayKey = trade.tradeDate; // A data já vem como 'yyyy-MM-dd'
+    
+    if (!dailyData[dayKey]) {
+      dailyData[dayKey] = { totalResult: 0, tradeCount: 0 };
+    }
+    
+    dailyData[dayKey].tradeCount += 1;
+    dailyData[dayKey].totalResult += parseFloat(trade.financialResult);
   }
+
+  // AQUI ESTÁ A SOLUÇÃO DEFINITIVA:
+  // Criamos uma chave única baseada no número de trades.
+  // Quando um novo trade é adicionado, esta chave muda (ex: de 5 para 6),
+  // forçando o React a destruir o CalendarClient antigo e a renderizar um novo do zero.
+  const calendarKey = tradesForMonth.length;
 
   return (
     <div className="p-2 sm:p-4 lg:p-6">
@@ -46,9 +50,11 @@ export default async function CalendarioPage() {
           Clique em um dia para registrar um novo trade
         </p>
 
-        {/* 3. Passamos os dados para o componente de cliente */}
-        <CalendarClient initialDate={currentDate} dailyData={dailyData} />
-
+        <CalendarClient 
+          key={calendarKey}
+          initialDate={currentDate} 
+          initialDailyData={dailyData} 
+        />
       </div>
     </div>
   );
