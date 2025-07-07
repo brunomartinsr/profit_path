@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation'; // Importar o useRouter
 import {
   addMonths,
   subMonths,
@@ -26,12 +27,21 @@ interface CalendarClientProps {
 }
 
 export default function CalendarClient({ initialDate, initialDailyData }: CalendarClientProps) {
+  const router = useRouter();
+  // O estado agora é apenas um espelho da 'initialDate' que vem do servidor
   const [currentDate, setCurrentDate] = useState(initialDate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  const goToNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-  const goToPreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  // As funções de navegação agora atualizam o URL
+  const handleMonthChange = (newDate: Date) => {
+    const month = newDate.getMonth() + 1;
+    const year = newDate.getFullYear();
+    router.push(`/dashboard/calendario?month=${month}&year=${year}`);
+  };
+
+  const goToNextMonth = () => handleMonthChange(addMonths(currentDate, 1));
+  const goToPreviousMonth = () => handleMonthChange(subMonths(currentDate, 1));
   
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);

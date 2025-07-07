@@ -12,11 +12,20 @@ export type DayData = {
   tradeCount: number;
 };
 
-// Usamos um objeto simples em vez de um Map para evitar problemas de serialização
 export type DailyDataObject = { [key: string]: DayData };
 
-export default async function CalendarioPage() {
-  const currentDate = new Date(); 
+export default async function CalendarioPage({
+  searchParams,
+}: {
+  searchParams?: {
+    month?: string;
+    year?: string;
+  };
+}) {
+  
+  const month = searchParams?.month ? parseInt(searchParams.month) : new Date().getMonth() + 1;
+  const year = searchParams?.year ? parseInt(searchParams.year) : new Date().getFullYear();
+  const currentDate = new Date(year, month - 1, 1);
 
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
@@ -24,21 +33,17 @@ export default async function CalendarioPage() {
 
   const dailyData: DailyDataObject = {};
   for (const trade of tradesForMonth) {
-    const dayKey = trade.tradeDate; // A data já vem como 'yyyy-MM-dd'
+    const dayKey = new Date(trade.tradeDate).toISOString().substring(0, 10);
     
     if (!dailyData[dayKey]) {
       dailyData[dayKey] = { totalResult: 0, tradeCount: 0 };
     }
     
     dailyData[dayKey].tradeCount += 1;
-    dailyData[dayKey].totalResult += parseFloat(trade.financialResult);
+    dailyData[dayKey].totalResult += parseFloat(trade.financialResult || '0');
   }
 
-  // AQUI ESTÁ A SOLUÇÃO DEFINITIVA:
-  // Criamos uma chave única baseada no número de trades.
-  // Quando um novo trade é adicionado, esta chave muda (ex: de 5 para 6),
-  // forçando o React a destruir o CalendarClient antigo e a renderizar um novo do zero.
-  const calendarKey = tradesForMonth.length;
+  const calendarKey = `${year}-${month}-${tradesForMonth.length}`;
 
   return (
     <div className="p-2 sm:p-4 lg:p-6">
