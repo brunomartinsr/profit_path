@@ -1,27 +1,31 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Remove useSearchParams
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 
-export default function DashboardFilters() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  // Obtém os filtros ativos a partir do URL
-  const activePeriod = searchParams.get('period');
-  const activeMonth = searchParams.get('month');
-  const activeYear = searchParams.get('year');
+// 1. Definimos a interface para as novas props
+interface DashboardFiltersProps {
+  activePeriod?: string;
+  activeMonth?: string;
+  activeYear?: string;
+}
 
-  // Estado para o seletor do popover
+export default function DashboardFilters({
+  activePeriod,
+  activeMonth,
+  activeYear,
+}: DashboardFiltersProps) {
+  const router = useRouter();
+  // 2. REMOVEMOS o uso de useSearchParams()
+
   const [selectedYear, setSelectedYear] = useState<string>(activeYear || new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(activeMonth || (new Date().getMonth() + 1).toString());
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  // Gera uma lista de anos para o dropdown
   const years = Array.from({ length: 6 }, (_, i) => (new Date().getFullYear() - i).toString());
   const months = [
     { value: '1', label: 'Janeiro' }, { value: '2', label: 'Fevereiro' },
@@ -33,21 +37,21 @@ export default function DashboardFilters() {
   ];
 
   const handlePeriodFilterChange = (period: 'week' | 'month' | 'year') => {
-    const params = new URLSearchParams(); // Começa com parâmetros limpos para remover os de mês/ano
+    const params = new URLSearchParams();
     params.set('period', period);
     router.push(`?${params.toString()}`);
   };
 
   const handleMonthFilterApply = () => {
-    const params = new URLSearchParams(); // Começa com parâmetros limpos para remover os de período
+    const params = new URLSearchParams();
     params.set('month', selectedMonth);
     params.set('year', selectedYear);
     router.push(`?${params.toString()}`);
-    setIsPopoverOpen(false); // Fecha o popover após aplicar
+    setIsPopoverOpen(false);
   };
 
+  // 3. A lógica agora usa as props em vez de ler do URL
   const getButtonClasses = (period: string) => {
-    // Destaca se for o período ativo E não houver um mês customizado selecionado
     if (activePeriod === period && !activeMonth) {
       return 'bg-gray-700 text-white hover:bg-gray-600';
     }
@@ -55,7 +59,6 @@ export default function DashboardFilters() {
   };
 
   const getCustomMonthButtonClasses = () => {
-    // Destaca se houver um mês customizado selecionado
     if (activeMonth) {
       return 'bg-gray-700 text-white hover:bg-gray-600';
     }

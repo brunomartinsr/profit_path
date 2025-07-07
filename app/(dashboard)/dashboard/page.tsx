@@ -1,3 +1,4 @@
+//Arquivo page do Dashboard, cujo caminho completo é app/(dashboard)/dashboard/page.tsx
 import { getPerformanceStats } from '@/lib/db/queries';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 import StatCard from './StatCard';
@@ -7,32 +8,37 @@ import RecentTrades from './RecentTrades';
 import { DollarSign, Target, BarChart, TrendingUp } from 'lucide-react';
 import DashboardFilters from './DashboardFilters';
 
+// A linha abaixo pode ser removida se o erro desaparecer, mas é seguro mantê-la.
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: {
+  searchParams?: Promise<{
     period?: 'week' | 'month' | 'year';
     month?: string;
     year?: string;
-  };
+  }>;
 }) {
+  // Await searchParams before accessing its properties
+  const resolvedSearchParams = await searchParams;
+  
   const today = new Date();
   
   let startDate: Date;
   let endDate: Date;
 
-  const customMonth = searchParams?.month ? parseInt(searchParams.month) : null;
-  const customYear = searchParams?.year ? parseInt(searchParams.year) : null;
+  const { year: yearStr, month: monthStr, period: periodStr } = resolvedSearchParams || {};
 
-  // Prioriza o filtro customizado de mês/ano
-  if (customMonth && customYear && !isNaN(customMonth) && !isNaN(customYear)) {
-    // O mês no objeto Date do JS é 0-indexado, por isso subtraímos 1
+  const customYear = yearStr ? parseInt(yearStr, 10) : NaN;
+  const customMonth = monthStr ? parseInt(monthStr, 10) : NaN;
+  
+  if (!isNaN(customYear) && !isNaN(customMonth) && customMonth >= 1 && customMonth <= 12) {
     const firstDay = new Date(customYear, customMonth - 1, 1);
     startDate = startOfMonth(firstDay);
     endDate = endOfMonth(firstDay);
   } else {
-    // Se não houver filtro customizado, usa o filtro de período (semana, mês, ano)
-    const period = searchParams?.period || 'month';
+    const period = (periodStr === 'week' || periodStr === 'year') ? periodStr : 'month';
     switch (period) {
       case 'week':
         startDate = startOfWeek(today, { weekStartsOn: 1 });
@@ -67,7 +73,12 @@ export default async function DashboardPage({
             A sua performance consolidada num só lugar.
           </p>
         </div>
-        <DashboardFilters />
+        {/* Passamos os filtros ativos como props */}
+        <DashboardFilters 
+          activePeriod={periodStr}
+          activeMonth={monthStr}
+          activeYear={yearStr}
+        />
       </header>
       
       <main className="space-y-6">

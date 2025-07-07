@@ -12,19 +12,43 @@ export type DayData = {
   tradeCount: number;
 };
 
+export type TradesByDayObject = { [key: string]: Trade[] };
 export type DailyDataObject = { [key: string]: DayData };
 
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams?: {
+  searchParams?: Promise<{
     month?: string;
     year?: string;
-  };
+  }>;
 }) {
   
-  const month = searchParams?.month ? parseInt(searchParams.month) : new Date().getMonth() + 1;
-  const year = searchParams?.year ? parseInt(searchParams.year) : new Date().getFullYear();
+  // Await searchParams before accessing its properties
+  const resolvedSearchParams = await searchParams;
+  
+  // --- CORREÇÃO TURBOPACK ---
+  const yearStr = resolvedSearchParams?.year;
+  const monthStr = resolvedSearchParams?.month;
+
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+
+  if (yearStr) {
+    const parsedYear = parseInt(yearStr, 10);
+    if (!isNaN(parsedYear)) {
+      year = parsedYear;
+    }
+  }
+
+  if (monthStr) {
+    const parsedMonth = parseInt(monthStr, 10);
+    if (!isNaN(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12) {
+      month = parsedMonth;
+    }
+  }
+  
   const currentDate = new Date(year, month - 1, 1);
 
   const firstDayOfMonth = startOfMonth(currentDate);
@@ -32,15 +56,21 @@ export default async function CalendarioPage({
   const tradesForMonth: Trade[] = await getTradesForMonth(firstDayOfMonth, lastDayOfMonth);
 
   const dailyData: DailyDataObject = {};
+  const tradesByDay: TradesByDayObject = {};
+
   for (const trade of tradesForMonth) {
     const dayKey = new Date(trade.tradeDate).toISOString().substring(0, 10);
     
     if (!dailyData[dayKey]) {
       dailyData[dayKey] = { totalResult: 0, tradeCount: 0 };
     }
+    if (!tradesByDay[dayKey]) {
+      tradesByDay[dayKey] = [];
+    }
     
     dailyData[dayKey].tradeCount += 1;
     dailyData[dayKey].totalResult += parseFloat(trade.financialResult || '0');
+    tradesByDay[dayKey].push(trade);
   }
 
   const calendarKey = `${year}-${month}-${tradesForMonth.length}`;
@@ -52,13 +82,14 @@ export default async function CalendarioPage({
           Calendário de Trades
         </h2>
         <p className="text-gray-400 text-lg mb-8">
-          Clique em um dia para registrar um novo trade
+          Clique em um dia para adicionar um trade ou no ícone para ver detalhes.
         </p>
 
         <CalendarClient 
           key={calendarKey}
           initialDate={currentDate} 
-          initialDailyData={dailyData} 
+          initialDailyData={dailyData}
+          initialTradesByDay={tradesByDay}
         />
       </div>
     </div>

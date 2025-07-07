@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Importar o useRouter
+import { useRouter } from 'next/navigation';
 import {
   addMonths,
   subMonths,
@@ -19,21 +19,26 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TradeModal from './trade-modal';
 import CalendarDay from './calendar-day';
-import { DailyDataObject } from './page';
+import { DailyDataObject, TradesByDayObject } from './page'; // Importa o novo tipo
 
+// --- CORREÇÃO ESTÁ AQUI ---
+// Adicionamos a nova propriedade 'initialTradesByDay' à interface.
 interface CalendarClientProps {
   initialDate: Date;
   initialDailyData: DailyDataObject;
+  initialTradesByDay: TradesByDayObject; 
 }
 
-export default function CalendarClient({ initialDate, initialDailyData }: CalendarClientProps) {
+export default function CalendarClient({ 
+  initialDate, 
+  initialDailyData, 
+  initialTradesByDay // E recebemo-la aqui
+}: CalendarClientProps) {
   const router = useRouter();
-  // O estado agora é apenas um espelho da 'initialDate' que vem do servidor
   const [currentDate, setCurrentDate] = useState(initialDate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  // As funções de navegação agora atualizam o URL
   const handleMonthChange = (newDate: Date) => {
     const month = newDate.getMonth() + 1;
     const year = newDate.getFullYear();
