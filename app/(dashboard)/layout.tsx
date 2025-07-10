@@ -1,9 +1,9 @@
 'use client';
 
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { CircleIcon, Home, LogOut } from 'lucide-react';
+import { Home, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,11 +34,11 @@ function UserMenu() {
       <>
         <Link
           href="/pricing"
-          className="text-sm font-medium text-gray-700 hover:text-gray-900"
+          className="text-sm font-medium text-gray-300 hover:text-white"
         >
           Pricing
         </Link>
-        <Button asChild className="rounded-full">
+        <Button asChild className="rounded-full bg-blue-600 hover:bg-blue-500">
           <Link href="/sign-up">Sign Up</Link>
         </Button>
       </>
@@ -48,9 +48,10 @@ function UserMenu() {
   return (
     <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
       <DropdownMenuTrigger>
-        <Avatar className="cursor-pointer size-9">
+        {/* --- MUDANÇA AQUI --- */}
+        <Avatar className="cursor-pointer size-10">
           <AvatarImage alt={user.name || ''} />
-          <AvatarFallback>
+          <AvatarFallback className="bg-gray-700 text-gray-300 font-semibold">
             {user.email
               .split(' ')
               .map((n) => n[0])
@@ -58,16 +59,16 @@ function UserMenu() {
           </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="flex flex-col gap-1">
-        <DropdownMenuItem className="cursor-pointer">
+      <DropdownMenuContent align="end" className="flex flex-col gap-1 bg-gray-900 border-gray-700 text-gray-200">
+        <DropdownMenuItem className="cursor-pointer focus:bg-blue-900/50 focus:text-white">
           <Link href="/dashboard" className="flex w-full items-center">
             <Home className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </Link>
         </DropdownMenuItem>
         <form action={handleSignOut} className="w-full">
-          <button type="submit" className="flex w-full">
-            <DropdownMenuItem className="w-full flex-1 cursor-pointer">
+          <button type="submit" className="flex w-full text-left">
+            <DropdownMenuItem className="w-full flex-1 cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-300">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sign out</span>
             </DropdownMenuItem>
@@ -80,13 +81,13 @@ function UserMenu() {
 
 function Header() {
   return (
-    <header className="bg-gray-800 border-b border-gray-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+    <header className="bg-gray-800  border-b border-gray-700">
+      <div className="w-full h-20 mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center">
-          <span className="ml-2 text-xl font-semibold text-blue-400">Profit Path</span>
+          <span className="ml-2 text-4xl font-semibold text-blue-400">Profit Path</span>
         </Link>
         <div className="flex items-center space-x-4">
-          <Suspense fallback={<div className="h-9" />}>
+          <Suspense fallback={<div className="h-10 w-10 rounded-full bg-gray-700 animate-pulse" />}>
             <UserMenu />
           </Suspense>
         </div>
@@ -97,7 +98,7 @@ function Header() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <section className="flex flex-col min-h-screen">
+    <section className="flex flex-col min-h-screen bg-gray-900">
       <Header />
       {children}
     </section>

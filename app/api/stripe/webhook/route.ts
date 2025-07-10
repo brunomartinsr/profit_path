@@ -1,5 +1,9 @@
 import Stripe from 'stripe';
-import { handleSubscriptionChange, stripe } from '@/lib/payments/stripe';
+import {
+  handleSubscriptionChange,
+  handleCheckoutSessionCompleted, // 1. Importamos a nova função
+  stripe
+} from '@/lib/payments/stripe';
 import { NextRequest, NextResponse } from 'next/server';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -20,9 +24,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 2. Adicionamos o novo caso para o evento de checkout concluído
   switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object as Stripe.Checkout.Session;
+      await handleCheckoutSessionCompleted(session);
+      break;
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
+    case 'customer.subscription.created': // Adicionado para mais robustez
       const subscription = event.data.object as Stripe.Subscription;
       await handleSubscriptionChange(subscription);
       break;

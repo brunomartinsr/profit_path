@@ -59,8 +59,8 @@ export default async function DashboardPage({
   const stats = await getPerformanceStats(startDate, endDate);
 
   const performanceChartData = [
-    { name: 'Vitórias', value: stats.wins },
-    { name: 'Derrotas', value: stats.losses },
+    { name: 'Take', value: stats.wins },
+    { name: 'Loss', value: stats.losses },
     { name: 'Break Even', value: stats.breakEvens },
   ].filter(item => item.value > 0);
 
@@ -94,7 +94,7 @@ export default async function DashboardPage({
             title="Taxa de Acerto"
             value={stats.winRate}
             icon={Target}
-            description={`${stats.wins} vitórias / ${stats.losses} derrotas`}
+            description={`${stats.wins} Take / ${stats.losses} Loss`}
             format="percent"
           />
           <StatCard 

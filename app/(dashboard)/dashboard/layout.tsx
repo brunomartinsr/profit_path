@@ -10,14 +10,17 @@ const NavLink = ({ item, pathname, isCollapsed }: { item: any; pathname: string;
   <Link href={item.href} passHref>
     <Button
       variant={pathname === item.href ? 'secondary' : 'ghost'}
-      className={`w-full gap-3 transition-colors ${
+      // Adicionado 'overflow-hidden' para cortar o texto que vaza durante a animação.
+      className={`w-full gap-3 transition-colors overflow-hidden ${
         pathname === item.href 
           ? 'bg-gray-700 text-white hover:bg-gray-600' 
           : 'text-gray-400 hover:bg-gray-700 hover:text-white'
       } ${isCollapsed ? 'justify-center' : 'justify-start'}`}
     >
       <item.icon className="h-5 w-5 flex-shrink-0" />
-      <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{item.label}</span>
+      <span className={`whitespace-nowrap ${isCollapsed ? 'hidden' : 'block'}`}>
+        {item.label}
+      </span>
     </Button>
   </Link>
 );
@@ -28,7 +31,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  // Começa a sidebar recolhida por defeito para uma aparência mais limpa
   const [isCollapsed, setIsCollapsed] = useState(true); 
 
   const navItems = [
@@ -38,15 +40,18 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="flex flex-1 overflow-hidden h-full">
-      {/* Sidebar Retrátil */}
+    // --- MUDANÇA AQUI ---
+    // Este contentor 'flex-1' ocupa o espaço vertical restante.
+    // 'overflow-hidden' cria um contexto de formatação que impede os filhos de transbordar,
+    // permitindo que o 'overflow-y-auto' no <main> funcione corretamente.
+    <div className="flex flex-1 overflow-hidden">
       <aside
+        // A sidebar agora estica-se naturalmente à altura do seu contentor pai.
         className={`bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
-        {/* Botão de Recolher/Expandir no topo */}
-        <div className="flex items-center justify-center h-16 border-b border-gray-700">
+        <div className="flex items-center justify-center h-16 border-b border-gray-700 flex-shrink-0">
           <Button
             variant="ghost"
             className="w-full h-full text-gray-400 hover:bg-gray-700 hover:text-white"
@@ -63,8 +68,8 @@ export default function DashboardLayout({
         </nav>
       </aside>
 
-      {/* Conteúdo Principal */}
-      <main className="flex-1 overflow-y-auto p-6 bg-gray-900">
+      {/* O conteúdo principal agora tem a sua própria barra de rolagem interna. */}
+      <main className="flex-1 p-6 bg-gray-900 overflow-y-auto">
         {children}
       </main>
     </div>

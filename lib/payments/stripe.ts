@@ -1,23 +1,24 @@
 import Stripe from 'stripe';
 import { redirect } from 'next/navigation';
-import { Team } from '@/lib/db/schema';
+import { Team, User } from '@/lib/db/schema';
 import {
   getTeamByStripeCustomerId,
-  getUser,
-  updateTeamSubscription
+  updateTeamSubscription,
+  getTeamByUserId, // 1. Importamos a nova query
+  updateTeam,
 } from '@/lib/db/queries';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function createCheckoutSession({
   team,
+  user,
   priceId
 }: {
   team: Team | null;
+  user: User | null;
   priceId: string;
 }) {
-  const user = await getUser();
-
   if (!team || !user) {
     redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
   }
@@ -26,13 +27,13 @@ export async function createCheckoutSession({
     payment_method_types: ['card'],
     line_items: [
       {
-        price: "price_1ReTTpP1gIe9iVex0dTMqHGH",
+        price: priceId,
         quantity: 1
       }
     ],
     mode: 'subscription',
-    success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.BASE_URL}/pricing`,
+    success_url: `${process.env.BASE_URL}/dashboard?checkout=success`,
+    cancel_url: `${process.env.BASE_URL}/subscribe`,
     customer: team.stripeCustomerId || undefined,
     client_reference_id: user.id.toString(),
     allow_promotion_codes: true,
@@ -43,6 +44,37 @@ export async function createCheckoutSession({
 
   redirect(session.url!);
 }
+
+// 2. Nova função para lidar com o evento de checkout concluído
+export async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session
+) {
+  const userId = session.client_reference_id;
+  const stripeCustomerId = session.customer as string;
+  const subscriptionId = session.subscription as string;
+
+  if (!userId || !stripeCustomerId || !subscriptionId) {
+    console.error('Dados essenciais em falta no evento de checkout.', { userId, stripeCustomerId, subscriptionId });
+    return;
+  }
+
+  // Encontra o time do utilizador através do ID do utilizador
+  const team = await getTeamByUserId(parseInt(userId, 10));
+  if (!team) {
+    console.error('Time não encontrado para o utilizador:', userId);
+    return;
+  }
+
+  // Atualiza o time com o ID do cliente do Stripe
+  await updateTeam(team.id, { stripeCustomerId });
+
+  // Busca a assinatura completa para ter todos os dados
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  // Chama a função existente para atualizar o status da assinatura
+  await handleSubscriptionChange(subscription);
+}
+
 
 export async function createCustomerPortalSession(team: Team) {
   if (!team.stripeCustomerId || !team.stripeProductId) {
@@ -128,13 +160,15 @@ export async function handleSubscriptionChange(
 
   if (status === 'active' || status === 'trialing') {
     const plan = subscription.items.data[0]?.plan;
+    const productId = plan?.product as string;
+
     await updateTeamSubscription(team.id, {
       stripeSubscriptionId: subscriptionId,
-      stripeProductId: plan?.product as string,
-      planName: (plan?.product as Stripe.Product).name,
+      stripeProductId: productId,
+      planName: null,
       subscriptionStatus: status
     });
-  } else if (status === 'canceled' || status === 'unpaid') {
+  } else if (status === 'canceled' || status === 'unpaid' || status === 'incomplete_expired') {
     await updateTeamSubscription(team.id, {
       stripeSubscriptionId: null,
       stripeProductId: null,

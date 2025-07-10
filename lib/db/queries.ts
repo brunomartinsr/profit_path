@@ -1,42 +1,47 @@
-import { desc, and, eq, isNull, gte, lte } from 'drizzle-orm';
-import { db } from './drizzle'; // Supondo que o seu ficheiro drizzle esteja aqui
+import { desc, and, eq, isNull, gte, lte, sql } from 'drizzle-orm';
+import { db } from './drizzle';
 import { activityLogs, teamMembers, teams, users, trades, trading_accounts } from './schema';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/session'; // O caminho pode variar
+import { verifyToken } from '@/lib/auth/session';
 
-// --- FUNÇÕES PADRÃO  ---
-
+// --- FUNÇÃO GETUSER CORRIGIDA ---
 export async function getUser() {
-  const sessionCookie = (await cookies()).get('session');
-  if (!sessionCookie || !sessionCookie.value) {
+  const sessionCookie = (await cookies()).get('session')?.value;
+  if (!sessionCookie) {
     return null;
   }
 
-  const sessionData = await verifyToken(sessionCookie.value);
-  if (
-    !sessionData ||
-    !sessionData.user ||
-    typeof sessionData.user.id !== 'number'
-  ) {
+  try {
+    // A função verifyToken já trata da validação e expiração.
+    // Se o token for inválido, ela lançará um erro.
+    const sessionData = await verifyToken(sessionCookie);
+
+    // Após a verificação, a nossa sessão é o próprio utilizador.
+    // Verificamos se temos um ID, que é o essencial.
+    if (!sessionData || typeof sessionData.id !== 'number') {
+      return null;
+    }
+
+    // Buscamos o utilizador na base de dados usando o ID da sessão.
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, sessionData.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (userResult.length === 0) {
+      return null;
+    }
+
+    return userResult[0];
+  } catch (error) {
+    // Se verifyToken falhar (ex: token expirado), a sessão é inválida.
+    console.error("Falha ao obter utilizador, sessão inválida:", error);
     return null;
   }
-
-  if (new Date(sessionData.expires) < new Date()) {
-    return null;
-  }
-
-  const user = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.id, sessionData.user.id), isNull(users.deletedAt)))
-    .limit(1);
-
-  if (user.length === 0) {
-    return null;
-  }
-
-  return user[0];
 }
+
+// --- RESTO DO SEU ARQUIVO ---
 
 export async function getTeamByStripeCustomerId(customerId: string) {
   const result = await db
@@ -155,27 +160,16 @@ export async function getTradesForMonth(startDate: Date, endDate: Date) {
   return monthTrades;
 }
 
-// --- FUNÇÃO PARA O DASHBOARD ---
-
-/**
- * Busca e calcula as estatísticas de performance para o utilizador autenticado num dado período.
- * @param startDate - A data de início do período.
- * @param endDate - A data de fim do período.
- * @returns Um objeto com todas as métricas de performance calculadas.
- */
 export async function getPerformanceStats(startDate: Date, endDate: Date) {
   const user = await getUser();
-  // Se não houver utilizador, retorna um objeto com valores padrão.
   if (!user) {
     return { totalResult: 0, totalTrades: 0, wins: 0, losses: 0, breakEvens: 0, winRate: 0, totalRR: 0, trades: [] };
   }
 
-  // Encontra a conta de trading do utilizador, seguindo o padrão do seu projeto.
   const userTradingAccount = await db.query.trading_accounts.findFirst({
     where: eq(trading_accounts.userId, user.id),
   });
   
-  // Se não houver conta, retorna valores padrão.
   if (!userTradingAccount) {
     return { totalResult: 0, totalTrades: 0, wins: 0, losses: 0, breakEvens: 0, winRate: 0, totalRR: 0, trades: [] };
   }
@@ -191,7 +185,6 @@ export async function getPerformanceStats(startDate: Date, endDate: Date) {
       )
     );
 
-  // 1. Inicializar as métricas
   let totalResult = 0;
   let totalTrades = allTradesInPeriod.length;
   let wins = 0;
@@ -199,7 +192,6 @@ export async function getPerformanceStats(startDate: Date, endDate: Date) {
   let breakEvens = 0;
   let totalRR = 0;
 
-  // 2. Iterar sobre cada trade para calcular as métricas
   for (const trade of allTradesInPeriod) {
     totalResult += parseFloat(trade.financialResult || '0');
 
@@ -207,26 +199,23 @@ export async function getPerformanceStats(startDate: Date, endDate: Date) {
     else if (trade.resultType === 'LOSS') losses++;
     else if (trade.resultType === 'BE') breakEvens++;
 
-    //  Risco/Retorno Total
     if (trade.riskRewardRatio && trade.riskRewardRatio.includes(':')) {
       const parts = trade.riskRewardRatio.split(':');
       const reward = parseFloat(parts[1]);
       
       if (!isNaN(reward)) {
         if (trade.resultType === 'WIN') {
-          totalRR += reward; // Adiciona o retorno no WIN
+          totalRR += reward;
         } else if (trade.resultType === 'LOSS') {
-          totalRR -= 1; // Subtrai 1R (risco) no LOSS
+          totalRR -= 1;
         }
       }
     }
   }
 
-  // Taxa de Acerto
   const tradesConsideredForWinRate = wins + losses;
   const winRate = tradesConsideredForWinRate > 0 ? (wins / tradesConsideredForWinRate) * 100 : 0;
 
-  // 4. Retornar o objeto com todas as estatísticas
   return {
     totalResult,
     totalTrades,
@@ -237,4 +226,77 @@ export async function getPerformanceStats(startDate: Date, endDate: Date) {
     totalRR,
     trades: allTradesInPeriod
   };
+}
+
+export async function getFilteredTrades(filters: {
+  startDate?: string;
+  endDate?: string;
+  asset?: string;
+  resultType?: string[];
+  followedPlan?: 'sim' | 'nao';
+}) {
+  const user = await getUser();
+  if (!user) return [];
+
+  const userTradingAccount = await db.query.trading_accounts.findFirst({
+    where: eq(trading_accounts.userId, user.id),
+  });
+
+  if (!userTradingAccount) {
+    return [];
+  }
+
+  const whereConditions = [eq(trades.accountId, userTradingAccount.id)];
+
+  if (filters.startDate) {
+    whereConditions.push(gte(trades.tradeDate, filters.startDate));
+  }
+  if (filters.endDate) {
+    whereConditions.push(lte(trades.tradeDate, filters.endDate));
+  }
+  if (filters.asset) {
+    whereConditions.push(sql`lower(${trades.asset}) like ${'%' + filters.asset.toLowerCase() + '%'}`);
+  }
+  if (filters.resultType && filters.resultType.length > 0) {
+    // @ts-ignore
+    whereConditions.push(sql`${trades.resultType} in ${filters.resultType}`);
+  }
+  if (filters.followedPlan) {
+    whereConditions.push(eq(trades.followedPlan, filters.followedPlan === 'sim'));
+  }
+
+  const filteredTrades = await db.query.trades.findMany({
+    where: and(...whereConditions),
+    orderBy: (trades, { desc }) => [desc(trades.tradeDate)],
+  });
+
+  return filteredTrades;
+}
+
+// --- NOVAS FUNÇÕES ADICIONADAS ---
+
+export async function getTeamByUserId(userId: number) {
+  const userWithTeam = await db
+    .select({
+      team: teams
+    })
+    .from(teams)
+    .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
+    .where(eq(teamMembers.userId, userId))
+    .limit(1);
+
+  return userWithTeam.length > 0 ? userWithTeam[0].team : null;
+}
+
+export async function updateTeam(
+  teamId: number,
+  data: Partial<typeof teams.$inferInsert>
+) {
+  const [updatedTeam] = await db
+    .update(teams)
+    .set(data)
+    .where(eq(teams.id, teamId))
+    .returning();
+
+  return updatedTeam;
 }

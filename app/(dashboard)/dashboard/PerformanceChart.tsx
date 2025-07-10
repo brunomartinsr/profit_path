@@ -12,11 +12,10 @@ interface PerformanceChartProps {
   data: ChartData[];
 }
 
-const COLORS = ['#22c55e', '#ef4444', '#a1a1aa']; // Verde para Wins, Vermelho para Losses, Cinza para BE
+const COLORS = ['#22c55e', '#ef4444', '#a1a1aa'];
 
-// Função para renderizar as percentagens no gráfico
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-  if (percent === 0) return null; // Não mostra a label se a percentagem for 0
+  if (percent === 0) return null;
 
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -59,15 +58,23 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
                 ))}
               </Pie>
               <Tooltip
+                cursor={{ fill: 'rgba(100, 116, 139, 0.1)' }}
                 contentStyle={{
-                  background: '#1f2937',
-                  borderColor: '#374151',
+                  background: '#1f2937', // bg-gray-800
+                  borderColor: '#374151', // border-gray-700
                   borderRadius: '0.5rem',
                 }}
-                labelStyle={{ color: '#d1d5db' }}
+                itemStyle={{
+                  color: '#d1d5db' // text-gray-300
+                }}
               />
-              {/* A legenda foi adicionada de volta */}
-              <Legend iconType="circle" />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{
+                  color: '#a1a1aa', // text-zinc-400
+                  paddingTop: '20px'
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>

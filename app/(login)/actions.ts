@@ -86,8 +86,14 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     };
   }
 
+  const sessionPayload = {
+    ...foundUser,
+    teamId: foundTeam?.id,
+    subscriptionStatus: foundTeam?.subscriptionStatus || 'inactive',
+  };
+
   await Promise.all([
-    setSession(foundUser),
+    setSession(sessionPayload),
     logActivity(foundTeam?.id, foundUser.id, ActivityType.SIGN_IN)
   ]);
 
@@ -128,7 +134,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const newUser: NewUser = {
     email,
     passwordHash,
-    role: 'owner' // Default role, will be overridden if there's an invitation
+    role: 'owner'
   };
 
   const [createdUser] = await db.insert(users).values(newUser).returning();
@@ -144,9 +150,9 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   let teamId: number;
   let userRole: string;
   let createdTeam: typeof teams.$inferSelect | null = null;
+  let subscriptionStatus = 'inactive'; // Padrão para novos times
 
   if (inviteId) {
-    // Check if there's a valid invitation
     const [invitation] = await db
       .select()
       .from(invitations)
@@ -175,13 +181,15 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
         .from(teams)
         .where(eq(teams.id, teamId))
         .limit(1);
+      
+      subscriptionStatus = createdTeam?.subscriptionStatus || 'inactive';
     } else {
       return { error: 'Invalid or expired invitation.', email, password };
     }
   } else {
-    // Create a new team if there's no invitation
     const newTeam: NewTeam = {
-      name: `${email}'s Team`
+      name: `${email}'s Team`,
+      subscriptionStatus: 'inactive',
     };
 
     [createdTeam] = await db.insert(teams).values(newTeam).returning();
@@ -196,6 +204,9 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
     teamId = createdTeam.id;
     userRole = 'owner';
+    // --- CORREÇÃO FINAL ---
+    // Garantimos que o valor seja sempre uma string, nunca nulo.
+    subscriptionStatus = createdTeam.subscriptionStatus || 'inactive';
 
     await logActivity(teamId, createdUser.id, ActivityType.CREATE_TEAM);
   }
@@ -206,10 +217,16 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     role: userRole
   };
 
+  const sessionPayload = {
+    ...createdUser,
+    teamId: teamId,
+    subscriptionStatus: subscriptionStatus,
+  };
+
   await Promise.all([
     db.insert(teamMembers).values(newTeamMember),
     logActivity(teamId, createdUser.id, ActivityType.SIGN_UP),
-    setSession(createdUser)
+    setSession(sessionPayload)
   ]);
 
   const redirectTo = formData.get('redirect') as string | null;
