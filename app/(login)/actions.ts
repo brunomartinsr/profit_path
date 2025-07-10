@@ -100,7 +100,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
     const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ team: foundTeam, priceId });
+    return createCheckoutSession({ team: foundTeam, user: foundUser, priceId });
   }
 
   redirect('/dashboard');
@@ -204,8 +204,6 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
     teamId = createdTeam.id;
     userRole = 'owner';
-    // --- CORREÇÃO FINAL ---
-    // Garantimos que o valor seja sempre uma string, nunca nulo.
     subscriptionStatus = createdTeam.subscriptionStatus || 'inactive';
 
     await logActivity(teamId, createdUser.id, ActivityType.CREATE_TEAM);
@@ -232,7 +230,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
     const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ team: createdTeam, priceId });
+    return createCheckoutSession({ team: createdTeam, user: createdUser, priceId });
   }
 
   redirect('/dashboard');
